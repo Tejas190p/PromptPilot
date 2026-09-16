@@ -1,4 +1,4 @@
-package com.example.promptpilot
+package com.tejas.promptpilot
 
 import io.flutter.embedding.android.FlutterActivity
 
