@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -101,6 +100,15 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  void openLibrary() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LibraryScreen(),
+      ),
+    );
   }
 
   @override
@@ -305,6 +313,38 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               const Spacer(),
+
+              // ==================================================
+              // MY LIBRARY BUTTON
+              // ==================================================
+
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: OutlinedButton.icon(
+                  onPressed: openLibrary,
+                  icon: const Icon(
+                    Icons.library_books_outlined,
+                  ),
+                  label: const Text(
+                    'My Library',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(
+                      color: Color(0xFF6D28D9),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(18),
+                    ),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 20),
             ],
@@ -1151,3 +1191,544 @@ class _ExampleChip
   }
 }
 
+// ======================================================
+// LIBRARY SCREEN
+// ======================================================
+
+class LibraryScreen extends StatefulWidget {
+  const LibraryScreen({super.key});
+
+  @override
+  State<LibraryScreen> createState() =>
+      _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> {
+  List<Map<String, dynamic>> savedPrompts = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadLibrary();
+  }
+
+  // ==================================================
+  // LOAD SAVED PROMPTS
+  // ==================================================
+
+  Future<void> loadLibrary() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final history =
+        prefs.getStringList('prompt_history') ?? [];
+
+    final loadedPrompts =
+        <Map<String, dynamic>>[];
+
+    for (final item in history) {
+      try {
+        final data = jsonDecode(item);
+
+        loadedPrompts.add({
+          'idea': data['idea'] ?? '',
+          'prompt': data['prompt'] ?? '',
+          'savedAt': data['savedAt'] ?? '',
+        });
+      } catch (e) {
+        // Ignore invalid saved entries.
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      savedPrompts = loadedPrompts;
+      isLoading = false;
+    });
+  }
+
+  // ==================================================
+  // FORMAT DATE
+  // ==================================================
+
+  String formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+
+      return '${date.day.toString().padLeft(2, '0')}/'
+          '${date.month.toString().padLeft(2, '0')}/'
+          '${date.year}';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // ==================================================
+  // OPEN SAVED PROMPT
+  // ==================================================
+
+  void openSavedPrompt(
+    Map<String, dynamic> savedPrompt,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SavedPromptScreen(
+          idea: savedPrompt['idea'] ?? '',
+          prompt: savedPrompt['prompt'] ?? '',
+          savedAt: savedPrompt['savedAt'] ?? '',
+        ),
+      ),
+    );
+  }
+
+  // ==================================================
+  // BUILD
+  // ==================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'My Library',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+      ),
+      body: SafeArea(
+        child: isLoading
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : savedPrompts.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(30),
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.library_books_outlined,
+                            size: 70,
+                            color: Colors.white24,
+                          ),
+                          SizedBox(height: 20),
+                          Text(
+                            'Your Library is Empty',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            'Generate a prompt and save it to your Library.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: loadLibrary,
+                    child: ListView.builder(
+                      padding:
+                          const EdgeInsets.fromLTRB(
+                        20,
+                        10,
+                        20,
+                        30,
+                      ),
+                      itemCount:
+                          savedPrompts.length,
+                      itemBuilder:
+                          (context, index) {
+                        final savedPrompt =
+                            savedPrompts[index];
+
+                        final idea =
+                            savedPrompt['idea'] ?? '';
+
+                        final prompt =
+                            savedPrompt['prompt'] ?? '';
+
+                        final savedAt =
+                            savedPrompt['savedAt'] ?? '';
+
+                        return GestureDetector(
+                          onTap: () {
+                            openSavedPrompt(
+                              savedPrompt,
+                            );
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            margin:
+                                const EdgeInsets.only(
+                              bottom: 14,
+                            ),
+                            padding:
+                                const EdgeInsets.all(18),
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  const Color(
+                                0xFF15151F,
+                              ),
+                              borderRadius:
+                                  BorderRadius.circular(
+                                20,
+                              ),
+                              border: Border.all(
+                                color:
+                                    Colors.white12,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration:
+                                          BoxDecoration(
+                                        borderRadius:
+                                            BorderRadius
+                                                .circular(
+                                          12,
+                                        ),
+                                        gradient:
+                                            const LinearGradient(
+                                          colors: [
+                                            Color(
+                                              0xFF7C3AED,
+                                            ),
+                                            Color(
+                                              0xFF2563EB,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      child:
+                                          const Icon(
+                                        Icons
+                                            .auto_awesome,
+                                        color:
+                                            Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+
+                                    const SizedBox(
+                                      width: 12,
+                                    ),
+
+                                    Expanded(
+                                      child: Text(
+                                        idea,
+                                        maxLines: 2,
+                                        overflow:
+                                            TextOverflow
+                                                .ellipsis,
+                                        style:
+                                            const TextStyle(
+                                          fontSize: 17,
+                                          fontWeight:
+                                              FontWeight
+                                                  .bold,
+                                        ),
+                                      ),
+                                    ),
+
+                                    const Icon(
+                                      Icons
+                                          .arrow_forward_ios,
+                                      size: 16,
+                                      color:
+                                          Colors.white38,
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(
+                                  height: 14,
+                                ),
+
+                                Text(
+                                  prompt,
+                                  maxLines: 3,
+                                  overflow:
+                                      TextOverflow.ellipsis,
+                                  style:
+                                      const TextStyle(
+                                    color:
+                                        Colors.white60,
+                                    fontSize: 14,
+                                    height: 1.4,
+                                  ),
+                                ),
+
+                                const SizedBox(
+                                  height: 14,
+                                ),
+
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons
+                                          .access_time_outlined,
+                                      size: 15,
+                                      color:
+                                          Colors.white38,
+                                    ),
+                                    const SizedBox(
+                                      width: 6,
+                                    ),
+                                    Text(
+                                      formatDate(
+                                        savedAt,
+                                      ),
+                                      style:
+                                          const TextStyle(
+                                        color:
+                                            Colors.white38,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+      ),
+    );
+  }
+}
+
+// ======================================================
+// SAVED PROMPT SCREEN
+// ======================================================
+
+class SavedPromptScreen extends StatelessWidget {
+  final String idea;
+  final String prompt;
+  final String savedAt;
+
+  const SavedPromptScreen({
+    super.key,
+    required this.idea,
+    required this.prompt,
+    required this.savedAt,
+  });
+
+  // ==================================================
+  // COPY SAVED PROMPT
+  // ==================================================
+
+  Future<void> copySavedPrompt(
+    BuildContext context,
+  ) async {
+    await Clipboard.setData(
+      ClipboardData(
+        text: prompt,
+      ),
+    );
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Prompt copied! 📋',
+        ),
+      ),
+    );
+  }
+
+  // ==================================================
+  // BUILD
+  // ==================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'Saved Prompt',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+      ),
+
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            20,
+            5,
+            20,
+            20,
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your idea',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF15151F),
+                  borderRadius:
+                      BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white12,
+                  ),
+                ),
+                child: Text(
+                  idea,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              const Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    color: Color(0xFF8B5CF6),
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Saved Prompt',
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF15151F),
+                    borderRadius:
+                        BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF6D28D9),
+                      width: 1.2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x336D28D9),
+                        blurRadius: 14,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      prompt,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    copySavedPrompt(context);
+                  },
+                  icon: const Icon(
+                    Icons.copy,
+                  ),
+                  label: const Text(
+                    'Copy Prompt',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style:
+                      ElevatedButton.styleFrom(
+                    backgroundColor:
+                        const Color(0xFF6D28D9),
+                    foregroundColor: Colors.white,
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
