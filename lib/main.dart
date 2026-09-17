@@ -1,5 +1,10 @@
+
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'services/gemini_service.dart';
 
 void main() {
@@ -338,7 +343,6 @@ class _GeneratedPromptScreenState
   @override
   void initState() {
     super.initState();
-
     generatedPrompt = widget.generatedPrompt;
   }
 
@@ -390,7 +394,7 @@ class _GeneratedPromptScreenState
   }
 
   // ==================================================
-  // COPY PROMPT
+  // COPY PROMPT + OPEN AI SELECTION
   // ==================================================
 
   Future<void> copyPrompt() async {
@@ -402,179 +406,700 @@ class _GeneratedPromptScreenState
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Prompt copied successfully! 🚀',
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AISelectionScreen(
+          prompt: generatedPrompt,
         ),
       ),
     );
   }
 
+  // ==================================================
+  // SAVE PROMPT
+  // ==================================================
+
+  Future<void> savePrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final existingHistory =
+        prefs.getStringList('prompt_history') ?? [];
+
+    final promptData = jsonEncode({
+      'idea': widget.idea,
+      'prompt': generatedPrompt,
+      'savedAt': DateTime.now().toIso8601String(),
+    });
+
+    existingHistory.insert(0, promptData);
+
+    await prefs.setStringList(
+      'prompt_history',
+      existingHistory,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Prompt saved to Library! 💾',
+        ),
+      ),
+    );
+  }
+
+  // ==================================================
+  // BUILD
+  // ==================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
         title: const Text(
           'Generated Prompt',
           style: TextStyle(
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor:
+            Colors.transparent,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            // ==================================================
-            // ORIGINAL IDEA
-            // ==================================================
+      body: SafeArea(
+        child: Padding(
+          padding:
+              const EdgeInsets.fromLTRB(
+            20,
+            4,
+            20,
+            20,
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              // ==================================================
+              // YOUR IDEA
+              // ==================================================
 
-            const Text(
-              'Your idea',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 14,
+              const Text(
+                'Your idea',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 7),
 
-            Text(
-              widget.idea,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            // ==================================================
-            // PROMPT TITLE
-            // ==================================================
-
-            const Text(
-              '✨ Your Powerful Prompt',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // GENERATED PROMPT
-            // ==================================================
-
-            Expanded(
-              child: Container(
+              Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(18),
+                padding:
+                    const EdgeInsets.all(15),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF15151F),
+                  color:
+                      const Color(0xFF15151F),
                   borderRadius:
-                      BorderRadius.circular(20),
+                      BorderRadius.circular(16),
                   border: Border.all(
                     color: Colors.white12,
                   ),
                 ),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    generatedPrompt,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      color: Colors.white70,
+                child: Text(
+                  widget.idea,
+                  maxLines: 2,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight:
+                        FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ==================================================
+              // POWERFUL PROMPT TITLE
+              // ==================================================
+
+              const Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    color:
+                        Color(0xFF8B5CF6),
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Your Powerful Prompt',
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // ==================================================
+              // PROMPT CARD
+              // ==================================================
+
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color:
+                        const Color(0xFF15151F),
+                    borderRadius:
+                        BorderRadius.circular(20),
+                    border: Border.all(
+                      color:
+                          const Color(0xFF6D28D9),
+                      width: 1.2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color:
+                            Color(0x336D28D9),
+                        blurRadius: 14,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child:
+                      SingleChildScrollView(
+                    child: SelectableText(
+                      generatedPrompt,
+                      style:
+                          const TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color:
+                            Colors.white70,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 15),
+              const SizedBox(height: 10),
 
-            // ==================================================
-            // IMPROVE BUTTON
-            // ==================================================
+              // ==================================================
+              // IMPROVE + COPY
+              // ==================================================
 
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: OutlinedButton.icon(
-                onPressed:
-                    isImproving ? null : improvePrompt,
-                icon: isImproving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2,
+              Row(
+                children: [
+                  Expanded(
+                    child:
+                        OutlinedButton.icon(
+                      onPressed: isImproving
+                          ? null
+                          : improvePrompt,
+                      icon: isImproving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child:
+                                  CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.auto_awesome,
+                              size: 18,
+                            ),
+                      label: Text(
+                        isImproving
+                            ? 'Improving...'
+                            : 'Improve',
+                        style:
+                            const TextStyle(
+                          fontWeight:
+                              FontWeight.bold,
                         ),
-                      )
-                    : const Icon(
-                        Icons.auto_awesome,
                       ),
-                label: Text(
-                  isImproving
-                      ? 'Improving...'
-                      : 'Improve Prompt',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                      style:
+                          OutlinedButton
+                              .styleFrom(
+                        foregroundColor:
+                            Colors.white,
+                        side:
+                            const BorderSide(
+                          color:
+                              Color(0xFF6D28D9),
+                        ),
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          vertical: 14,
+                        ),
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius
+                                  .circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child:
+                        ElevatedButton.icon(
+                      onPressed: copyPrompt,
+                      icon: const Icon(
+                        Icons.copy,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Copy',
+                        style:
+                            TextStyle(
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+                      style:
+                          ElevatedButton
+                              .styleFrom(
+                        backgroundColor:
+                            const Color(
+                          0xFF6D28D9,
+                        ),
+                        foregroundColor:
+                            Colors.white,
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          vertical: 14,
+                        ),
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(
+                            14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // ==================================================
+              // SAVE
+              // ==================================================
+
+              SizedBox(
+                width: double.infinity,
+                child:
+                    OutlinedButton.icon(
+                  onPressed: savePrompt,
+                  icon: const Icon(
+                    Icons.bookmark_border,
+                    size: 19,
+                  ),
+                  label: const Text(
+                    'Save to Library',
+                    style:
+                        TextStyle(
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                  style:
+                      OutlinedButton
+                          .styleFrom(
+                    foregroundColor:
+                        Colors.white,
+                    side:
+                        const BorderSide(
+                      color: Colors.white24,
+                    ),
+                    padding:
+                        const EdgeInsets
+                            .symmetric(
+                      vertical: 12,
+                    ),
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(
+                        14,
+                      ),
+                    ),
                   ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(
-                    color: Color(0xFF6D28D9),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ======================================================
+// AI SELECTION SCREEN
+// ======================================================
+
+class AISelectionScreen extends StatefulWidget {
+  final String prompt;
+
+  const AISelectionScreen({
+    super.key,
+    required this.prompt,
+  });
+
+  @override
+  State<AISelectionScreen> createState() =>
+      _AISelectionScreenState();
+}
+
+class _AISelectionScreenState
+    extends State<AISelectionScreen> {
+  String selectedAI = 'ChatGPT';
+
+  // ==================================================
+  // OPEN SELECTED AI
+  // ==================================================
+
+  Future<void> openSelectedAI() async {
+    String url;
+
+    switch (selectedAI) {
+      case 'ChatGPT':
+        url = 'https://chatgpt.com/';
+        break;
+
+      case 'Gemini':
+        url = 'https://gemini.google.com/';
+        break;
+
+      case 'Claude':
+        url = 'https://claude.ai/';
+        break;
+
+      default:
+        return;
+    }
+
+    final uri = Uri.parse(url);
+
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not open $selectedAI',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error opening $selectedAI',
+          ),
+        ),
+      );
+    }
+  }
+
+  // ==================================================
+  // AI CARD
+  // ==================================================
+
+  Widget aiCard({
+    required String name,
+    required String description,
+    required IconData icon,
+  }) {
+    final bool isSelected =
+        selectedAI == name;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedAI = name;
+        });
+      },
+      child: AnimatedContainer(
+        duration:
+            const Duration(milliseconds: 200),
+        width: double.infinity,
+        padding:
+            const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF21143D)
+              : const Color(0xFF15151F),
+          borderRadius:
+              BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF8B5CF6)
+                : Colors.white12,
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? const [
+                  BoxShadow(
+                    color:
+                        Color(0x336D28D9),
+                    blurRadius: 16,
+                    spreadRadius: 1,
                   ),
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(16),
-                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                borderRadius:
+                    BorderRadius.circular(15),
+                gradient:
+                    const LinearGradient(
+                  colors: [
+                    Color(0xFF7C3AED),
+                    Color(0xFF2563EB),
+                  ],
                 ),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 25,
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(width: 15),
 
-            // ==================================================
-            // COPY BUTTON
-            // ==================================================
-
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                onPressed: copyPrompt,
-                icon: const Icon(Icons.copy),
-                label: const Text(
-                  'Copy Prompt',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style:
+                        const TextStyle(
+                      fontSize: 18,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      const Color(0xFF6D28D9),
-                  foregroundColor: Colors.white,
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(16),
+                  const SizedBox(height: 5),
+                  Text(
+                    description,
+                    style:
+                        const TextStyle(
+                      color:
+                          Colors.white54,
+                      fontSize: 13,
+                    ),
                   ),
-                ),
+                ],
               ),
+            ),
+
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_off,
+              color: isSelected
+                  ? const Color(0xFF8B5CF6)
+                  : Colors.white30,
+              size: 25,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ==================================================
+  // BUILD
+  // ==================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'Choose AI',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor:
+            Colors.transparent,
+      ),
+
+      body: SafeArea(
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(
+            horizontal: 20,
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 15),
+
+              const Text(
+                'Where do you want to\nuse your prompt?',
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight:
+                      FontWeight.bold,
+                  height: 1.15,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              const Text(
+                'Select your preferred AI assistant.',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 15,
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // ==================================================
+              // CHATGPT
+              // ==================================================
+
+              aiCard(
+                name: 'ChatGPT',
+                description:
+                    'Use your prompt with ChatGPT',
+                icon:
+                    Icons.chat_bubble_outline,
+              ),
+
+              const SizedBox(height: 14),
+
+              // ==================================================
+              // GEMINI
+              // ==================================================
+
+              aiCard(
+                name: 'Gemini',
+                description:
+                    'Use your prompt with Gemini',
+                icon:
+                    Icons.auto_awesome,
+              ),
+
+              const SizedBox(height: 14),
+
+              // ==================================================
+              // CLAUDE
+              // ==================================================
+
+              aiCard(
+                name: 'Claude',
+                description:
+                    'Use your prompt with Claude',
+                icon:
+                    Icons.psychology_outlined,
+              ),
+
+              const Spacer(),
+
+              // ==================================================
+              // CONTINUE BUTTON
+              // ==================================================
+
+              SizedBox(
+                width: double.infinity,
+                height: 58,
+                child: ElevatedButton.icon(
+                  onPressed:
+                      openSelectedAI,
+                  icon: const Icon(
+                    Icons.open_in_new,
+                  ),
+                  label: Text(
+                    'Continue with $selectedAI',
+                    style:
+                        const TextStyle(
+                      fontSize: 16,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                  style:
+                      ElevatedButton.styleFrom(
+                    backgroundColor:
+                        const Color(
+                      0xFF6D28D9,
+                    ),
+                    foregroundColor:
+                        Colors.white,
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(
+                        18,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
@@ -585,7 +1110,8 @@ class _GeneratedPromptScreenState
 // EXAMPLE CHIP
 // ======================================================
 
-class _ExampleChip extends StatelessWidget {
+class _ExampleChip
+    extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
 
@@ -599,12 +1125,14 @@ class _ExampleChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
+        padding:
+            const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 9,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFF15151F),
+          color:
+              const Color(0xFF15151F),
           borderRadius:
               BorderRadius.circular(30),
           border: Border.all(
@@ -622,3 +1150,4 @@ class _ExampleChip extends StatelessWidget {
     );
   }
 }
+
